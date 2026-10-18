@@ -10,7 +10,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import Ridge
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -120,23 +120,39 @@ def main():
         )
     ])
 
-    model = Pipeline([
+    pipeline = Pipeline([
         ("preprocess", preprocess),
         ("regressor", Ridge(alpha=30))
     ])
 
-    model.fit(X_train, y_train)
+    # Choose regularization using only the training portion. This reduces
+    # overfitting while keeping the final test set independent for evaluation.
+    search = GridSearchCV(
+        pipeline,
+        param_grid={"regressor__alpha": [1, 3, 10, 30, 100, 300]},
+        scoring="neg_mean_absolute_error",
+        cv=3,
+        n_jobs=-1,
+        refit=True,
+    )
+    search.fit(X_train, y_train)
+    model = search.best_estimator_
     predictions = np.maximum(model.predict(X_test), 0)
 
     mae = mean_absolute_error(y_test, predictions)
     rmse = np.sqrt(mean_squared_error(y_test, predictions))
 
-    print("\n--- Word/Character TF-IDF Ridge Evaluation ---")
+    print("\n--- Tuned Word/Character TF-IDF Ridge Evaluation ---")
     print(f"Valid rows: {len(df)}")
     print(f"Training rows: {len(X_train)}")
     print(f"Testing rows: {len(X_test)}")
     print(f"MAE: {mae:.2f} minutes")
     print(f"RMSE: {rmse:.2f} minutes")
+    print(f"Selected Ridge alpha: {search.best_params_['regressor__alpha']}")
+    print(
+        "Training CV MAE: "
+        f"{-search.best_score_:.2f} minutes"
+    )
 
     MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(model, MODEL_PATH)
