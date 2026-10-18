@@ -9,7 +9,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.pipeline import Pipeline
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import Ridge
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
@@ -90,10 +90,27 @@ def main():
         random_state=42
     )
 
+    # Task names are mostly unique, so a tree model cannot reliably memorize
+    # them. Word and character n-grams generalize across similar task phrases.
     preprocess = ColumnTransformer([
         (
-            "task_text",
-            TfidfVectorizer(ngram_range=(1, 2)),
+            "task_words",
+            TfidfVectorizer(
+                ngram_range=(1, 3),
+                sublinear_tf=True,
+                max_features=40000
+            ),
+            "task_name"
+        ),
+        (
+            "task_characters",
+            TfidfVectorizer(
+                analyzer="char_wb",
+                ngram_range=(3, 5),
+                sublinear_tf=True,
+                min_df=2,
+                max_features=50000
+            ),
             "task_name"
         ),
         (
@@ -105,13 +122,7 @@ def main():
 
     model = Pipeline([
         ("preprocess", preprocess),
-        ("regressor", RandomForestRegressor(
-            n_estimators=200,
-            max_depth=None,
-            min_samples_leaf=2,
-            random_state=42,
-            n_jobs=-1
-        ))
+        ("regressor", Ridge(alpha=30))
     ])
 
     model.fit(X_train, y_train)
@@ -120,7 +131,7 @@ def main():
     mae = mean_absolute_error(y_test, predictions)
     rmse = np.sqrt(mean_squared_error(y_test, predictions))
 
-    print("\n--- Random Forest Evaluation ---")
+    print("\n--- Word/Character TF-IDF Ridge Evaluation ---")
     print(f"Valid rows: {len(df)}")
     print(f"Training rows: {len(X_train)}")
     print(f"Testing rows: {len(X_test)}")

@@ -102,6 +102,14 @@ def main():
         mean_squared_error(y_test, predictions)
     )
     model_r2 = r2_score(y_test, predictions)
+    absolute_percentage_errors = (
+        np.abs(y_test.to_numpy() - predictions) /
+        np.maximum(y_test.to_numpy(), 1)
+    )
+    mape = absolute_percentage_errors.mean() * 100
+    within_30_minutes = (
+        np.abs(y_test.to_numpy() - predictions) <= 30
+    ).mean() * 100
 
     baseline_mae = mean_absolute_error(
         y_test, baseline_predictions
@@ -113,10 +121,12 @@ def main():
     print("\n=== Task Duration Model Evaluation ===")
     print(f"Test rows: {len(y_test)}")
 
-    print("\nRandom Forest:")
+    print("\nTF-IDF Ridge:")
     print(f"MAE:  {model_mae:.2f} minutes")
     print(f"RMSE: {model_rmse:.2f} minutes")
-    print(f"R²:   {model_r2:.4f}")
+    print(f"R2:   {model_r2:.4f}")
+    print(f"MAPE: {mape:.2f}%")
+    print(f"Within +/-30 minutes: {within_30_minutes:.2f}%")
 
     print("\nMedian Baseline:")
     print(f"MAE:  {baseline_mae:.2f} minutes")
@@ -124,14 +134,14 @@ def main():
 
     print("\nComparison:")
     if model_mae < baseline_mae:
-        print("Random Forest has lower MAE than the baseline.")
+        print("TF-IDF Ridge has lower MAE than the baseline.")
     else:
-        print("Random Forest does not beat the baseline on MAE.")
+        print("TF-IDF Ridge does not beat the baseline on MAE.")
 
     if model_rmse < baseline_rmse:
-        print("Random Forest has lower RMSE than the baseline.")
+        print("TF-IDF Ridge has lower RMSE than the baseline.")
     else:
-        print("Random Forest does not beat the baseline on RMSE.")
+        print("TF-IDF Ridge does not beat the baseline on RMSE.")
 
     # Save predictions for further inspection.
     results = X_test.copy()
