@@ -8,14 +8,27 @@ import pandas as pd
 
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
+    accuracy_score,
     mean_absolute_error,
     mean_squared_error,
+    precision_score,
+    recall_score,
     r2_score
 )
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_PATH = ROOT / "data" / "task_duration_dataset.csv"
 MODEL_PATH = ROOT / "models" / "duration_model.joblib"
+DURATION_CLASSES = ["short (<=60 min)", "medium (61-180 min)", "long (>180 min)"]
+
+
+def duration_class(minutes):
+    """Map durations to readable bands for classification metrics."""
+    return np.select(
+        [minutes <= 60, minutes <= 180],
+        DURATION_CLASSES[:2],
+        default=DURATION_CLASSES[2],
+    )
 
 
 def duration_to_minutes(value):
@@ -111,6 +124,18 @@ def main():
         np.abs(y_test.to_numpy() - predictions) <= 30
     ).mean() * 100
 
+    actual_classes = duration_class(y_test.to_numpy())
+    predicted_classes = duration_class(predictions)
+    class_accuracy = accuracy_score(actual_classes, predicted_classes)
+    class_precision = precision_score(
+        actual_classes, predicted_classes,
+        labels=DURATION_CLASSES, average="macro", zero_division=0
+    )
+    class_recall = recall_score(
+        actual_classes, predicted_classes,
+        labels=DURATION_CLASSES, average="macro", zero_division=0
+    )
+
     baseline_mae = mean_absolute_error(
         y_test, baseline_predictions
     )
@@ -127,6 +152,10 @@ def main():
     print(f"R2:   {model_r2:.4f}")
     print(f"MAPE: {mape:.2f}%")
     print(f"Within +/-30 minutes: {within_30_minutes:.2f}%")
+    print("\nDuration-band classification (short <=60, medium 61-180, long >180 min):")
+    print(f"Accuracy:  {class_accuracy * 100:.2f}%")
+    print(f"Precision: {class_precision * 100:.2f}% (macro average)")
+    print(f"Recall:    {class_recall * 100:.2f}% (macro average)")
 
     print("\nMedian Baseline:")
     print(f"MAE:  {baseline_mae:.2f} minutes")
@@ -150,6 +179,8 @@ def main():
     results["absolute_error_minutes"] = np.abs(
         y_test.to_numpy() - predictions
     )
+    results["actual_duration_band"] = actual_classes
+    results["predicted_duration_band"] = predicted_classes
 
     output_path = ROOT / "evaluation_results.csv"
     results.to_csv(output_path, index=False)
