@@ -94,7 +94,8 @@ def main():
         (df["duration_minutes"] > 0)
     ]
 
-    X = df[["task_name", "resource_role"]]
+    df["task_role"] = "role " + df["resource_role"] + " task " + df["task_name"]
+    X = df[["task_name", "resource_role", "task_role"]]
     y = df["duration_minutes"]
 
     # Must match train_model.py

@@ -77,10 +77,14 @@ def main():
         (df["duration_minutes"] > 0)
     ]
 
+    # Include the role alongside the task text so TF-IDF can learn
+    # role-specific task patterns, rather than only a global role adjustment.
+    df["task_role"] = "role " + df["resource_role"] + " task " + df["task_name"]
+
     if len(df) < 10:
         raise ValueError("At least 10 valid rows are required.")
 
-    X = df[["task_name", "resource_role"]]
+    X = df[["task_name", "resource_role", "task_role"]]
     y = df["duration_minutes"]
 
     X_train, X_test, y_train, y_test = train_test_split(
@@ -114,6 +118,16 @@ def main():
             "task_name"
         ),
         (
+            "task_role_interactions",
+            TfidfVectorizer(
+                ngram_range=(1, 3),
+                sublinear_tf=True,
+                min_df=2,
+                max_features=50000
+            ),
+            "task_role"
+        ),
+        (
             "role",
             OneHotEncoder(handle_unknown="ignore"),
             ["resource_role"]
@@ -132,7 +146,9 @@ def main():
         param_grid={"regressor__alpha": [1, 3, 10, 30, 100, 300]},
         scoring="neg_mean_absolute_error",
         cv=3,
-        n_jobs=-1,
+        # Keep training within the available memory and avoid spawning a
+        # worker per CPU when fitting the text feature matrices.
+        n_jobs=1,
         refit=True,
     )
     search.fit(X_train, y_train)

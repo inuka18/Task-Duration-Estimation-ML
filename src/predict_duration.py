@@ -44,7 +44,8 @@ if not task_name or not resource_role:
 
 sample = pd.DataFrame([{
     "task_name": task_name,
-    "resource_role": resource_role
+    "resource_role": resource_role,
+    "task_role": f"role {resource_role} task {task_name}"
 }])
 
 duration_minutes = max(0, float(model.predict(sample)[0]))
